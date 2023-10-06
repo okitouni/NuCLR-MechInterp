@@ -4,3 +4,4 @@ seaborn
 scikit-learn
 mup
 pandas
+plotly
