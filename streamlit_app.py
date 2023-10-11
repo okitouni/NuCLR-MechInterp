@@ -4,9 +4,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # Generate data and PCA
-df = pd.read_csv("data/nuclear_pca.csv")
-df_z = pd.read_csv("data/z_pca.csv")
-df_n = pd.read_csv("data/n_pca.csv")
+df = pd.read_csv("streamlit-data/nuclear_pca.csv")
+df_z = pd.read_csv("streamlit-data/z_pca.csv")
+df_n = pd.read_csv("streamlit-data/n_pca.csv")
 
 
 st.title("Select PCA components to plot")
