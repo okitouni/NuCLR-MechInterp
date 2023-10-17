@@ -28,6 +28,14 @@ if vis_type == "Proton (Z) Embeddings":
     # Z PCA Controls
     st.sidebar.write("### Proton (Z) Embeddings")
 
+    # Create sliders for Z and N range
+    z_min = st.sidebar.slider("Minimum Z:", int(min(df_z['z'])), int(max(df_z['z'])), int(min(df_z['z'])))
+    z_max = st.sidebar.slider("Maximum Z:", int(min(df_z['z'])), int(max(df_z['z'])), int(max(df_z['z'])))
+    # Filter DataFrame based on slider values
+    filtered_df = df_z[(df_z['z'] >= z_min) & (df_z['z'] <= z_max)]
+
+    st.sidebar.write("-----")
+
     # Slider Controls for 2D and 3D plots
     x_pc = st.sidebar.slider("X-axis PC:", 1, 10, 1)
     y_pc = st.sidebar.slider("Y-axis PC:", 1, 10, 2)
@@ -36,7 +44,7 @@ if vis_type == "Proton (Z) Embeddings":
 
     # Display the 2D scatter plot
     fig = px.scatter(
-        df_z,
+        filtered_df,
         x=f"PC{x_pc}",
         y=f"PC{y_pc}",
         hover_data=["z"],
@@ -49,7 +57,7 @@ if vis_type == "Proton (Z) Embeddings":
 
     # Display the 3D scatter plot
     fig = px.scatter_3d(
-        df_z,
+        filtered_df,
         x=f"PC{x_pc}",
         y=f"PC{y_pc}",
         z=f"PC{z_pc}",
@@ -66,6 +74,14 @@ elif vis_type == "Neutron (N) Embeddings":
 
     st.sidebar.write("### Neutron (N) Embeddings")
 
+    # Create sliders for Z and N range
+    n_min = st.sidebar.slider("Minimum N:", int(min(df_n['n'])), int(max(df_n['n'])), int(min(df_n['n'])))
+    n_max = st.sidebar.slider("Maximum N:", int(min(df_n['n'])), int(max(df_n['n'])), int(max(df_n['n'])))
+    # Filter DataFrame based on slider values
+    filtered_df = df_n[(df_n['n'] >= n_min) & (df_n['n'] <= n_max)]
+
+    st.sidebar.write("-----")
+
     # Slider Controls for 2D and 3D plots for Neutron
     x_pc_n = st.sidebar.slider("X-axis PC:", 1, 10, 1)
     y_pc_n = st.sidebar.slider("Y-axis PC:", 1, 10, 2)
@@ -73,7 +89,7 @@ elif vis_type == "Neutron (N) Embeddings":
     color_n = st.sidebar.slider("Color Scale PC:", 1, 10, 3)
 
     fig_n = px.scatter(
-        df_n,
+        filtered_df,
         x=f"PC{x_pc_n}",
         y=f"PC{y_pc_n}",
         hover_data=["n"],
@@ -85,7 +101,7 @@ elif vis_type == "Neutron (N) Embeddings":
     st.plotly_chart(fig_n)
 
     fig_n_3d = px.scatter_3d(
-        df_n,
+        filtered_df,
         x=f"PC{x_pc_n}",
         y=f"PC{y_pc_n}",
         z=f"PC{z_pc_n}",
@@ -104,6 +120,15 @@ elif vis_type == "Nuclear Embeddings (PCA)":
     st.sidebar.write("### Nuclear Embeddings")
     st.sidebar.write("Output of first layer representation (concatenated Z, N, and Task)")
 
+    # Create sliders for Z and N range
+    z_min = st.sidebar.slider("Minimum Z:", int(min(df['z'])), int(max(df['z'])), int(min(df['z'])))
+    z_max = st.sidebar.slider("Maximum Z:", int(min(df['z'])), int(max(df['z'])), int(max(df['z'])))
+    n_min = st.sidebar.slider("Minimum N:", int(min(df['n'])), int(max(df['n'])), int(min(df['n'])))
+    n_max = st.sidebar.slider("Maximum N:", int(min(df['n'])), int(max(df['n'])), int(max(df['n'])))
+    # Filter DataFrame based on slider values
+    filtered_df = df[(df['z'] >= z_min) & (df['z'] <= z_max) & (df['n'] >= n_min) & (df['n'] <= n_max)]
+
+    st.sidebar.write("-----")
     # Sidebar Controls for Nuclear Embeddings in 2D and 3D
     x_pc_nuclear = st.sidebar.slider("X-axis PC:", 1, 10, 1)
     y_pc_nuclear = st.sidebar.slider("Y-axis PC:", 1, 10, 2)
@@ -112,7 +137,7 @@ elif vis_type == "Nuclear Embeddings (PCA)":
 
     # 2D scatter plot for Nuclear Embeddings
     fig_nuclear = px.scatter(
-        df,
+        filtered_df,
         x=f"PC{x_pc_nuclear}",
         y=f"PC{y_pc_nuclear}",
         hover_data=["z", "n"],
@@ -125,7 +150,7 @@ elif vis_type == "Nuclear Embeddings (PCA)":
 
     # 3D scatter plot for Nuclear Embeddings
     fig_nuclear_3d = px.scatter_3d(
-        df,
+        filtered_df,
         x=f"PC{x_pc_nuclear}",
         y=f"PC{y_pc_nuclear}",
         z=f"PC{z_pc_nuclear}",
@@ -137,18 +162,28 @@ elif vis_type == "Nuclear Embeddings (PCA)":
     st.plotly_chart(fig_nuclear_3d)
 
 elif vis_type == "Nuclear Embeddings (t-SNE)":
+    mass_numbers = df_t_sne['z'] + df_t_sne['n']
+    df_t_sne['mass_number'] = mass_numbers
     # NUCLEAR PCA
     st.sidebar.header("Control Panel")
 
     st.sidebar.write("-----")
     st.sidebar.write("### Nuclear Embeddings")
     st.sidebar.write("Output of first layer representation (concatenated Z, N, and Task)")
-    mass_numbers = df_t_sne['z'] + df_t_sne['n']
-    df_t_sne['mass_number'] = mass_numbers
+
+    # Create sliders for Z and N range
+    z_min = st.sidebar.slider("Minimum Z:", int(min(df_t_sne['z'])), int(max(df_t_sne['z'])), int(min(df_t_sne['z'])))
+    z_max = st.sidebar.slider("Maximum Z:", int(min(df_t_sne['z'])), int(max(df_t_sne['z'])), int(max(df_t_sne['z'])))
+    n_min = st.sidebar.slider("Minimum N:", int(min(df_t_sne['n'])), int(max(df_t_sne['n'])), int(min(df_t_sne['n'])))
+    n_max = st.sidebar.slider("Maximum N:", int(min(df_t_sne['n'])), int(max(df_t_sne['n'])), int(max(df_t_sne['n'])))
+    # Filter DataFrame based on slider values
+    filtered_df = df_t_sne[(df_t_sne['z'] >= z_min) & (df_t_sne['z'] <= z_max) & (df_t_sne['n'] >= n_min) & (df_t_sne['n'] <= n_max)]
+
+    st.sidebar.write("-----")
 
     # 2D scatter plot for Nuclear Embeddings
     fig_nuclear = px.scatter(
-        df_t_sne,
+        filtered_df,
         x=f"C1",
         y=f"C2",
         hover_data=["z", "n"],
