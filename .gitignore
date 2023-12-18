@@ -2,3 +2,5 @@ __pycache__
 checkpoints/
 data/
 plots/
+results/
+.vscode
