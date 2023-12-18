@@ -5,7 +5,7 @@ from functools import partial
 import mup
 import warnings
 from typing import Callable, Iterable
-from data import Data
+from .data import Data
 import os
 import torch.nn.utils.parametrize as p
 
@@ -226,3 +226,21 @@ def get_model_and_optim(data: Data, config, shape_file=None):
     # optimizer = torch.optim.AdamW(param_groups, lr=config.LR, amsgrad=True)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=config.LR, weight_decay=config.WD)
     return model, optimizer
+
+
+class AutoEncoder(torch.nn.Module):
+  def __init__(self, input_dim, hidden_dim):
+    super().__init__()
+    self.encoder = torch.nn.Linear(input_dim, hidden_dim, bias=True)
+    self.decoder = torch.nn.Linear(hidden_dim, input_dim, bias=False)
+    self.input_bias = torch.nn.Parameter(torch.zeros(input_dim))
+
+  def forward(self, x):
+    x = self.encoder(x - self.input_bias)
+    acts = torch.nn.functional.relu(x)
+    x = self.decoder(acts) + self.input_bias
+    return x, acts
+
+  def loss(self, x, lambda_l1=.1):
+    y, acts = self(x)
+    return torch.nn.functional.mse_loss(y, x) + lambda_l1 * acts.abs().mean()
