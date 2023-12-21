@@ -14,6 +14,7 @@ from lib.data import prepare_nuclear_data
 parser = ArgumentParser()
 parser.add_argument("--experiment_name", "-exp", type=str, help="name of experiment to load")
 parser.add_argument("--device", "-dev", type=str, help="device to run on")
+parser.add_argument("--root", "-r", type=str, help="root directory of project", default="./results")
 
 
 def fix_mask(data, all_same=True):
@@ -35,7 +36,7 @@ def fix_mask(data, all_same=True):
 if __name__ == "__main__":
     script_args = parser.parse_args()
 
-    result_dir = f"results/{script_args.experiment_name}"
+    result_dir = f"{script_args.root}/{script_args.experiment_name}"
     run_args_file = f"{result_dir}/args.yaml"
     with open(run_args_file, "r") as f:
         args = yaml.load(f, Loader=yaml.FullLoader)
@@ -80,12 +81,13 @@ if __name__ == "__main__":
         loss = torch.nn.functional.mse_loss(preds, y_train)
         loss.backward()
         optim.step()
+        main_task_name = "binding" if "binding" in args.TARGETS_REGRESSION else list(args.TARGETS_REGRESSION.keys())[0]
         if epoch % (args.EPOCHS//10) == 0:
             print(f"Epoch {epoch}: {loss.item():.2f}")
-            train_rms = quick_eval(new_model, "binding", verbose=False, train=True)
+            train_rms = quick_eval(new_model, main_task_name, verbose=False, train=True)
             print(f"Train RMS: {train_rms[0]:.2f} ({train_rms[1]:.2f})", end=" ")
             if data.val_mask.sum() > 0:
-                val_rms = quick_eval(new_model, "binding", verbose=False, train=False)
+                val_rms = quick_eval(new_model, main_task_name, verbose=False, train=False)
                 print(f"Val RMS: {val_rms[0]:.2f} ({val_rms[1]:.2f})")
             if args.SAVE_CKPT:
                 os.makedirs(f"{result_dir}/ckpts", exist_ok=True)

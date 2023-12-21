@@ -230,6 +230,7 @@ def get_nuclear_data(recreate=False):
         df["binding_sys"] = df2.binding_sys
         df.reset_index(inplace=True)
 
+    # TODO removed this for mech interp model
     df = df[(df.z > 8) & (df.n > 8)]
     return df
 
@@ -339,6 +340,7 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
 
     # don't consider nuclei with high uncertainty in binding energy
     # BUT only for evaluation!
+    # TODO removed this for mech interp model
     except_binding = (df.binding_unc * (df.z + df.n) > 100).values
     targets.loc[except_binding, "binding"] = np.nan
 

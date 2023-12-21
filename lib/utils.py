@@ -73,7 +73,7 @@ def get_rms_no_outliers(preds, targets, zn, percentile=99, scale_by_A=False):
 class PlottingContext:
     def plot_predictions(data, model, task_name, train=True):
         preds, targets, zn = preds_targets_zn(data, model, task_name, train)
-        rms = get_rms(preds, targets, zn, scale_by_A="binding_semf" == task_name)
+        rms = get_rms(preds, targets, zn, scale_by_A="binding"in task_name)
 
         plt.plot(targets, preds, "o")
         plt.xlabel("Target")
@@ -129,7 +129,9 @@ class PlottingContext:
             plt.colorbar(sm, label=f"PC {i + 1}")
 
         plt.show()
+        fig.tight_layout()
         plt.close(fig)
+        return fig
 
 
 class IO:
@@ -147,3 +149,6 @@ class IO:
             args = yaml.load(f, Loader=yaml.FullLoader)
             args = Namespace(**args)
         return args
+
+    def get_root():
+        return "/export/d0/kitouni/NuCLR-MechInterp-results"

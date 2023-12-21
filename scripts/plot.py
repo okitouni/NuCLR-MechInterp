@@ -17,18 +17,20 @@ parser.add_argument(
     help="plot all checkpoints",
 )
 
+parser.add_argument("--root", "-r", type=str, help="root directory of project", default="./results")
+
 
 if __name__ == "__main__":
     scripts_args = parser.parse_args()
     experiment_name = scripts_args.experiment_name
 
-    run_args = IO.load_args(os.path.join("results", experiment_name, "args.yaml"))
+    run_args = IO.load_args(os.path.join(scripts_args.root, experiment_name, "args.yaml"))
     data = prepare_nuclear_data(run_args)
     new_model, _ = get_model_and_optim(data, run_args)
 
-    models = {"final": os.path.join("results", experiment_name, "model.pt")}
+    models = {"final": os.path.join(scripts_args.root, experiment_name, "model.pt")}
     if scripts_args.all_ckpts:
-        ckpts = glob(os.path.join("results", experiment_name, "ckpts", "*.pt"))
+        ckpts = glob(os.path.join(scripts_args.root, experiment_name, "ckpts", "*.pt"))
         # names are of the form model-epoch.pt
         epoch = lambda x: int(x.split("-")[-1].split(".")[0])
         models.update({epoch(ckpt): ckpt for ckpt in ckpts})
@@ -38,10 +40,9 @@ if __name__ == "__main__":
         for i, type in enumerate(["Z", "N"]):
             embed = new_model.emb[i].detach().cpu().numpy()
             fig = PlottingContext.plot_embedding(embed, num_components=10)
-            fig.tight_layout()
 
             img_path = os.path.join(
-                "results", experiment_name, "plots", f"embedding_{type}_{name}.png"
+                scripts_args.root, experiment_name, "plots", f"embedding_{type}_{name}.png"
             )
             os.makedirs(os.path.dirname(img_path), exist_ok=True)
             fig.savefig(img_path)

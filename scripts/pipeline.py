@@ -14,17 +14,18 @@ parser.add_argument(
 parser.add_argument(
     "--plot", "-p", action="store_true", help="plot the embeddings", required=False
 )
+parser.add_argument("--root", "-r", type=str, help="root directory of project", default='./results')
 
 pipeline_args = parser.parse_args()
 experiment_name = pipeline_args.experiment_name
 
 if pipeline_args.train:
     # train the model
-    train_cmd = f"python -m scripts.train -exp {experiment_name}"
+    train_cmd = f"python -m scripts.train -exp {experiment_name} -r {pipeline_args.root}"
     print("Running:", train_cmd)
     os.system(train_cmd)
 
 if pipeline_args.plot:
-    plot_cmd = f"python -m scripts.plot -exp {experiment_name} -a"
+    plot_cmd = f"python -m scripts.plot -exp {experiment_name} -a -r {pipeline_args.root}"
     print("Running:", plot_cmd)
     os.system(plot_cmd)
