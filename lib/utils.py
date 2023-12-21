@@ -152,3 +152,111 @@ class IO:
 
     def get_root():
         return "/export/d0/kitouni/NuCLR-MechInterp-results"
+
+
+class Physics:
+    all_funcs = ['pairing', 'volume', 'surface', 'coulomb', 'asymmetry', 'SEMF', 'shell', 'rotational', 'exchange', 'wigner', 'strutinsky', 'BW2']
+
+    def pairing(Z, N):
+        A = Z + N
+        aP = 11.18
+        delta = aP * A ** (-1 / 2)
+        delta[(Z % 2 == 1) & (N % 2 == 1)] *= -1
+        delta[A % 1 == 1] = 0
+        return delta
+
+
+    def volume(Z, N):
+        A = Z + N
+        aV = 15.75
+        return aV * A
+
+
+    def surface(Z, N):
+        A = Z + N
+        aS = 17.8
+        return aS * A ** (2 / 3)
+
+
+    def coulomb(Z, N):
+        A = Z + N
+        aC = 0.711
+        return aC * Z * (Z - 1) / (A ** (1 / 3))
+
+
+    def asymmetry(Z, N):
+        A = Z + N
+        aA = 23.7
+        return aA * (N - Z) ** 2 / A
+
+
+    def SEMF(Z, N):
+        Eb = Physics.volume(Z, N) - Physics.surface(Z, N) - Physics.coulomb(Z, N) - Physics.asymmetry(Z, N) + Physics.pairing(Z, N)
+        Eb[Eb < 0] = 0
+        return Eb / (Z + N) * 1000  # keV
+
+
+    def shell(Z, N):
+        # calculates the shell effects according to "Mutual influence of terms in a semi-empirical" Kirson
+        alpham = -1.9
+        betam = 0.14
+        magic = [2, 8, 20, 28, 50, 82, 126, 184]
+
+        def find_nearest(lst, target):
+            return min(lst, key=lambda x: abs(x - target))
+
+        nup = np.array([abs(x - find_nearest(magic, x)) for x in Z])
+        nun = np.array([abs(x - find_nearest(magic, x)) for x in N])
+        P = nup * nun / (nup + nun)
+        P[np.isnan(P)] = 0
+        return alpham * P + betam * P**2
+
+
+    def rotational(Z, N):
+        aR = 14.77
+        return aR * (Z + N) ** (1 / 3)
+
+
+    def exchange(Z, N):
+        aX = 2.22
+        return aX * Z ** (4 / 3) / (N + Z) ** (1 / 3)
+
+
+    def wigner(Z, N):
+        aW = -43.4
+        return aW * (N - Z) ** 2 / (N + Z)
+
+
+    def strutinsky(Z, N):
+        aS = 55.62
+        return aS * (N - Z) ** 2 / (N + Z) ** (4 / 3)
+
+
+    def BW2(Z, N):
+        A = N + Z
+
+        aV = 16.58
+        aS = -26.95
+        aC = -0.774
+        aA = -31.51
+        axC = 2.22
+        aW = -43.4
+        ast = 55.62
+        aR = 14.77
+
+        Eb = (
+            aV * A  # volume
+            + aS * A ** (2 / 3) # surface
+            + aC * Z**2 / (A ** (1 / 3)) # coulomb
+            + aA * (N - Z) ** 2 / A # asymmetry
+            + Physics.pairing(Z, N)  # pairing
+            + Physics.shell(Z, N) # shell
+            + aR * A ** (1 / 3) # rotational
+            + axC * Z ** (4 / 3) / A ** (1 / 3) # exchange
+            + aW * abs(N - Z) / A # Wigner
+            + ast * (N - Z) ** 2 / A ** (4 / 3) # Strutinsky
+        )
+
+        Eb[Eb < 0] = 0
+        return Eb / A * 1000  # keV
+

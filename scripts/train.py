@@ -17,20 +17,6 @@ parser.add_argument("--device", "-dev", type=str, help="device to run on")
 parser.add_argument("--root", "-r", type=str, help="root directory of project", default="./results")
 
 
-def fix_mask(data, all_same=True):
-    """all_same makes every task have the same mask, otherwise each task has it's own mask given by the order of the task"""
-    gen = torch.Generator().manual_seed(42)
-    if all_same:
-        new_train_mask = torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < 1
-        new_train_mask = new_train_mask.repeat_interleave(len(data.output_map))
-    else:
-        new_train_mask = [torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < 0.8 for _ in range(len(data.output_map))]
-        new_train_mask = torch.cat(new_train_mask)
-    new_train_mask = new_train_mask.to(data.train_mask.device)
-    data = data._replace(train_mask=new_train_mask)
-    new_val_mask = ~new_train_mask
-    data = data._replace(val_mask=new_val_mask)
-    return data
 
 
 if __name__ == "__main__":
@@ -42,17 +28,11 @@ if __name__ == "__main__":
         args = yaml.load(f, Loader=yaml.FullLoader)
     args = Namespace(**args)
     print("Loaded args:", args, "\n")
+    main_task_name = "binding" if "binding" in args.TARGETS_REGRESSION else list(args.TARGETS_REGRESSION.keys())[0]
 
     data = prepare_nuclear_data(args)
-    print("Loaded Data:", data._fields, data.output_map, "\n")
-    # changing the data
-    print("Fixing mask")
-    data = fix_mask(data, all_same=True)
-    args.TRAIN_FRAC = 1.0
 
     torch.manual_seed(args.SEED)
-    
-
     # setup training data
     X_train = data.X[data.train_mask]
     y_train = data.y[data.train_mask]
@@ -61,10 +41,9 @@ if __name__ == "__main__":
     y_train = y_train[non_nan_targets]
 
     def quick_eval(model, task="binding", verbose=True, train=False):
-        """helper to get the rms for the franken model"""
         preds, targets, zn = preds_targets_zn(data, model, task, train=train)
-        rms = get_rms(preds, targets, zn, scale_by_A=True)
-        rms_clip = get_rms_no_outliers(preds, targets, zn, scale_by_A=True)
+        rms = get_rms(preds, targets, zn, scale_by_A=args.PER_NUCLEON=="true")
+        rms_clip = get_rms_no_outliers(preds, targets, zn, scale_by_A=args.PER_NUCLEON=="true")
         if verbose:
             print(f"RMS for franken model: {rms:.2f}")
             print(f"RMS for franken model (clipped): {rms_clip:.2f}")
@@ -72,17 +51,26 @@ if __name__ == "__main__":
 
     new_model, optim = get_model_and_optim(data, args)
 
+    # shuffle indices to make batches
+    indices = torch.arange(X_train.shape[0])
 
     # train the new model
     for epoch in (pbar:=tqdm(range(args.EPOCHS))):
-        optim.zero_grad()
-        preds = new_model(X_train)
-        preds = preds.gather(1, X_train[:, 2].long().view(-1, 1))
-        loss = torch.nn.functional.mse_loss(preds, y_train)
-        loss.backward()
-        optim.step()
-        main_task_name = "binding" if "binding" in args.TARGETS_REGRESSION else list(args.TARGETS_REGRESSION.keys())[0]
-        if epoch % (args.EPOCHS//10) == 0:
+        torch.randperm(X_train.shape[0], out=indices)
+        for batch_idx in range(0, X_train.shape[0], args.BATCH_SIZE):
+            batch = indices[batch_idx:batch_idx+args.BATCH_SIZE]
+            X_batch = X_train[batch]
+            y_batch = y_train[batch]
+
+            optim.zero_grad()
+            preds = new_model(X_batch)
+            preds = preds.gather(1, X_batch[:, 2].long().view(-1, 1))
+            loss = torch.nn.functional.mse_loss(preds, y_batch)
+            loss.backward()
+            optim.step()
+            pbar.set_description(f"Epoch {epoch}: {loss.item():.2e}")
+
+        if epoch % (args.EPOCHS//args.LOG_TIMES) == 0:
             print(f"Epoch {epoch}: {loss.item():.2f}")
             train_rms = quick_eval(new_model, main_task_name, verbose=False, train=True)
             print(f"Train RMS: {train_rms[0]:.2f} ({train_rms[1]:.2f})", end=" ")
@@ -92,8 +80,6 @@ if __name__ == "__main__":
             if args.SAVE_CKPT:
                 os.makedirs(f"{result_dir}/ckpts", exist_ok=True)
                 torch.save(new_model.state_dict(), f"{result_dir}/ckpts/model-{epoch}.pt")
-        pbar.set_description(f"Epoch {epoch}: {loss.item():.2e}")
-        
     # save model
     torch.save(new_model.state_dict(), f"{result_dir}/model.pt")
     IO.save_args(args, f"{result_dir}/args.yaml")
