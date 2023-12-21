@@ -23,6 +23,52 @@ def delta(Z, N):
     return delta
 
 
+def shell(Z, N):
+    # calculates the shell effects according to "Mutual influence of terms in a semi-empirical" Kirson
+    alpham = -1.9
+    betam = 0.14
+    magic = [2, 8, 20, 28, 50, 82, 126, 184]
+
+    def find_nearest(lst, target):
+        return min(lst, key=lambda x: abs(x - target))
+
+    nup = np.array([abs(x - find_nearest(magic, x)) for x in Z])
+    nun = np.array([abs(x - find_nearest(magic, x)) for x in N])
+    P = nup * nun / (nup + nun)
+    P[np.isnan(P)] = 0
+    return alpham * P + betam * P**2
+
+
+# TODO move all the physics functions to a separate file
+def BW2_mass_formula(Z, N):
+    A = N + Z
+
+    aV = 16.58
+    aS = -26.95
+    aC = -0.774
+    aA = -31.51
+    axC = 2.22
+    aW = -43.4
+    ast = 55.62
+    aR = 14.77
+
+    Eb = (
+        aV * A  # volume
+        + aS * A ** (2 / 3) # surface
+        + aC * Z**2 / (A ** (1 / 3)) # coulomb
+        + aA * (N - Z) ** 2 / A # asymmetry
+        + delta(Z, N)  # pairing
+        + shell(Z, N) # shell
+        + aR * A ** (1 / 3) # rotational
+        + axC * Z ** (4 / 3) / A ** (1 / 3) # exchange
+        + aW * abs(N - Z) / A # Wigner
+        + ast * (N - Z) ** 2 / A ** (4 / 3) # Strutinsky
+    )
+
+    Eb[Eb < 0] = 0
+    return Eb / A * 1000  # keV
+
+
 def semi_empirical_mass_formula(Z, N):
     A = N + Z
     aV = 15.75
@@ -162,13 +208,15 @@ def get_radius_from(df):
     return df.radius.replace(" ", "nan").astype(float)
 
 
-def get_targets(df):
+def get_targets(df, per_nucleon=False):
     # place all targets into targets an empty copy of df
+    A = df.z + df.n
+    scale = 1 if per_nucleon else A
     targets = df[["z", "n"]].copy()
     # binding energy per nucleon
-    targets["binding"] = get_binding_energy_from(df)
+    targets["binding"] = get_binding_energy_from(df) * scale
     # binding energy per nucleon minus semi empirical mass formula
-    targets["binding_semf"] = targets.binding - semi_empirical_mass_formula(df.z, df.n)
+    targets["binding_semf"] = targets.binding - semi_empirical_mass_formula(df.z, df.n) * scale
     # radius in fm
     targets["radius"] = get_radius_from(df)
     # half life in log10(sec)
@@ -207,7 +255,7 @@ def get_targets(df):
     return targets
 
 
-def get_nuclear_data(recreate=False):
+def get_nuclear_data(recreate=False, ge=8):
     def lc_read_csv(url):
         req = urllib.request.Request("https://nds.iaea.org/relnsd/v0/data?" + url)
         req.add_header(
@@ -231,7 +279,7 @@ def get_nuclear_data(recreate=False):
         df.reset_index(inplace=True)
 
     # TODO removed this for mech interp model
-    df = df[(df.z > 8) & (df.n > 8)]
+    df = df[(df.z > ge) & (df.n > ge)]
     return df
 
 
@@ -245,6 +293,7 @@ Data = namedtuple(
         "regression_transformer",
         "train_mask",
         "val_mask",
+        "binding_unc",
     ],
 )
 
@@ -305,8 +354,8 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
         recreate (bool, optional): Force re-download of data and save to csv. Defaults to False.
     returns (Data): namedtuple of X, y, vocab_size, output_map, quantile_transformer
     """
-    df = get_nuclear_data(recreate=recreate)
-    targets = get_targets(df)
+    df = get_nuclear_data(recreate=recreate, ge=config.NUCLEI_GE if hasattr(config, "NUCLEI_GE") else 8)
+    targets = get_targets(df, per_nucleon=config.PER_NUCLEON == "true")
 
     X = torch.tensor(targets[["z", "n"]].values)
     vocab_size = (
@@ -339,10 +388,11 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
         )
 
     # don't consider nuclei with high uncertainty in binding energy
-    # BUT only for evaluation!
     # TODO removed this for mech interp model
-    except_binding = (df.binding_unc * (df.z + df.n) > 100).values
-    targets.loc[except_binding, "binding"] = np.nan
+    binding_unc = torch.tensor(df.binding_unc.values)
+    if hasattr(config, "NUCLEI_HIGH_UNC") and config.NUCLEI_HIGH_UNC == "remove":
+        except_binding = (df.binding_unc * (df.z + df.n) > 100).values
+        targets.loc[except_binding, "binding"] = np.nan
 
     y = torch.tensor(targets[list(output_map.keys())].values).float()
 
@@ -355,7 +405,7 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
         len(y), config.TRAIN_FRAC, seed=config.SEED
     )
 
-    return Data(
+    data =  Data(
         X.to(config.DEV),
         y.to(config.DEV),
         vocab_size,
@@ -363,4 +413,46 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
         feature_transformer,
         train_mask.to(config.DEV),
         test_mask.to(config.DEV),
+        binding_unc
     )
+
+    if config.TRAIN_SET == "all":
+        data = fix_mask(data, all_same=True)
+        config.TRAIN_FRAC = 1.0
+    elif "extrap" in config.TRAIN_SET:
+        distance = int(config.TRAIN_SET.split("_")[1])
+        data = remove_edges(data, distance)
+        config.TRAIN_FRAC = (data.train_mask.sum() / data.train_mask.shape[0]).item()
+    return data
+
+
+
+def fix_mask(data, all_same=True):
+    """all_same makes every task have the same mask, otherwise each task has it's own mask given by the order of the task"""
+    gen = torch.Generator().manual_seed(42)
+    if all_same:
+        new_train_mask = torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < 1
+        new_train_mask = new_train_mask.repeat_interleave(len(data.output_map))
+    else:
+        new_train_mask = [torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < 0.8 for _ in range(len(data.output_map))]
+        new_train_mask = torch.cat(new_train_mask)
+    new_train_mask = new_train_mask.to(data.train_mask.device)
+    data = data._replace(train_mask=new_train_mask)
+    new_val_mask = ~new_train_mask
+    data = data._replace(val_mask=new_val_mask)
+    return data
+
+def remove_edges(data, distance):
+    """removes edges from the data that are within distance"""
+    Z = data.X[:, 0]
+    N = data.X[:, 1]
+    new_train_mask = torch.ones_like(data.train_mask, dtype=torch.bool)
+    for z in range(28, Z.max()+1):
+        all_ns = N[Z == z]
+        min_n, max_n = all_ns.min(), all_ns.max()
+        if max_n - min_n < 2 * distance:
+            continue
+        new_train_mask[(Z == z) & ((N < min_n + distance) | (N > max_n - distance))] = False
+    data =  data._replace(train_mask=new_train_mask)
+    data = data._replace(val_mask=~new_train_mask.clone())
+    return data
