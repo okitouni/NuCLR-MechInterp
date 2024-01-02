@@ -5,6 +5,9 @@ import matplotlib as mpl
 import yaml
 from argparse import Namespace
 import os
+import subprocess
+from pathlib import Path
+
 
 
 def preds_targets_zn(data, model, task_name, train=True):
@@ -268,3 +271,36 @@ class Physics:
         Eb[Eb < 0] = 0
         return Eb / A * 1000  # keV
 
+
+class Slurm:
+    # SLURM job
+    # run hostname to get the name of the machine you're on
+    slurm_job = """#!/bin/zsh
+    #SBATCH --job-name={name}
+    #SBATCH --output=logs/{name}-%j.out
+    #SBATCH --error=logs/{name}-%j.err
+    #SBATCH --nodes=1
+    #SBATCH --ntasks-per-node=1
+    #SBATCH --cpus-per-task=1
+    #SBATCH --gres=gpu:1
+    #SBATCH --mem=24G
+    #SBATCH --time=24:00:00
+    #SBATCH --partition={partition}
+    
+    """
+
+    @classmethod
+    def create_job(cls, cmd_base, name):
+        host = subprocess.run(["hostname"], stdout=subprocess.PIPE).stdout.decode("utf-8").strip()
+        if "submit" in host:
+            partition = "submit-gpu"
+        else:
+            partition = "gpu,iaifi_gpu"
+        slurm_scripts_path = Path("logs/scripts")
+        os.makedirs(slurm_scripts_path, exist_ok=True)
+
+        job = cls.slurm_job.format(name=name, partition=partition) + cmd_base
+        job_name = slurm_scripts_path / f"{name}.sh"
+        with open(job_name, "w") as f:
+            f.write(job)
+        subprocess.run(["sbatch", job_name])
