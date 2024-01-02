@@ -29,7 +29,7 @@ def preds_targets_zn(data, model, task_name, train=True):
     # it expects a numpy array, of shape (samples, features) where features is the number
     # of tasks we have.
     targets = data.y.view(-1, len(data.output_map)).cpu().numpy()
-    targets = data.regression_transformer.inverse_transform(targets)
+    # targets = data.regression_transformer.inverse_transform(targets)
     targets = targets.flatten()[mask.cpu().numpy()]
     targets = targets[scatter]
 
@@ -128,9 +128,7 @@ class PlottingContext:
 
             plt.colorbar(sm, label=f"PC {i + 1}")
 
-        plt.show()
         fig.tight_layout()
-        plt.close(fig)
         return fig
 
 
@@ -149,6 +147,16 @@ class IO:
             args = yaml.load(f, Loader=yaml.FullLoader)
             args = Namespace(**args)
         return args
+
+    def load_latest_model(path):
+        final_model = os.path.join(path, "model.pt")
+        if os.path.exists(final_model) and False:
+            return final_model
+        else:
+            path = os.path.join(path, "ckpts")
+            ckpts = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(".pt")]
+            ckpts.sort(key=os.path.getmtime)
+            return ckpts[-1]
 
     def get_root():
         return "/export/d0/kitouni/NuCLR-MechInterp-results"

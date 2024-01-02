@@ -217,6 +217,7 @@ def get_targets(df, per_nucleon=False):
     targets["binding"] = get_binding_energy_from(df) * scale
     # binding energy per nucleon minus semi empirical mass formula
     targets["binding_semf"] = targets.binding - semi_empirical_mass_formula(df.z, df.n) * scale
+    targets["binding_bw2"] = targets.binding - BW2_mass_formula(df.z, df.n) * scale
     # radius in fm
     targets["radius"] = get_radius_from(df)
     # half life in log10(sec)
@@ -383,7 +384,10 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
     # )
     feature_transformer = MinMaxScaler()
     if len(reg_columns) > 0:
-        targets[reg_columns] = feature_transformer.fit_transform(
+        # targets[reg_columns] = feature_transformer.fit_transform(
+        #     targets[reg_columns].values
+        # )
+        feature_transformer.fit(
             targets[reg_columns].values
         )
 

@@ -48,13 +48,20 @@ if __name__ == "__main__":
             print(f"RMS for franken model: {rms:.2f}")
             print(f"RMS for franken model (clipped): {rms_clip:.2f}")
         return rms, rms_clip
-
+    
+    def transform(tensor):
+        min_ = torch.tensor(data.regression_transformer.data_min_.tolist(), device=tensor.device)
+        max_ = torch.tensor(data.regression_transformer.data_max_.tolist(), device=tensor.device)
+        return (tensor * (max_ - min_)) + min_
+    
     new_model, optim = get_model_and_optim(data, args)
 
     # shuffle indices to make batches
     indices = torch.arange(X_train.shape[0])
 
     # train the new model
+    loss_weights = 1 / torch.tensor(list(args.TARGETS_REGRESSION.values()), device=X_train.device).view(-1)
+
     for epoch in (pbar:=tqdm(range(args.EPOCHS))):
         torch.randperm(X_train.shape[0], out=indices)
         for batch_idx in range(0, X_train.shape[0], args.BATCH_SIZE):
@@ -63,9 +70,11 @@ if __name__ == "__main__":
             y_batch = y_train[batch]
 
             optim.zero_grad()
-            preds = new_model(X_batch)
+            preds = transform(new_model(X_batch))
             preds = preds.gather(1, X_batch[:, 2].long().view(-1, 1))
-            loss = torch.nn.functional.mse_loss(preds, y_batch)
+            loss = torch.nn.functional.mse_loss(preds, y_batch, reduction="none")
+            weights = loss_weights[X_batch[:, [2]].long()]
+            loss = (loss * weights).mean()
             loss.backward()
             optim.step()
             pbar.set_description(f"Epoch {epoch}: {loss.item():.2e}")
