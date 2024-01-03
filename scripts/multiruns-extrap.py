@@ -15,12 +15,13 @@ parser.add_argument(
 )
 parser.add_argument("--debug", "-d", action="store_true", help="debug mode")
 parser.add_argument("--slurm", "-s", action="store_true", help="run on slurm")
+parser.add_argument("--wandb", "-w", action="store_true", help="save to wandb")
 
 
 config = {
     "DEPTH": 4,
     "DEV": "cuda",
-    "EPOCHS": 25_000,
+    "EPOCHS": 50_000,
     "HIDDEN_DIM": 2048,
     "LR": 0.0001,
     "MODEL": "baseline",
@@ -30,8 +31,8 @@ config = {
     "DEV": "cuda",
     "TARGETS_CLASSIFICATION": {},
     "TARGETS_REGRESSION": {
-        "binding": 100,
-        # "binding_bw2": 100,
+        # "binding": 100,
+        "binding_bw2": 100,
         # "binding_semf": 1,
         # "z": 1,
         # "n": 1,
@@ -50,32 +51,31 @@ config = {
     "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
-    "PER_NUCLEON": "true",
+    "PER_NUCLEON": "false",
     "SAVE_CKPT": True,
+    "VERBOSITY": 1,
 }
 
 
 if __name__ == "__main__":
-    experiment_name = "multiruns-extrap"
     args = parser.parse_args()
     ROOT = args.root
     DEBUG = args.debug
     SLURM = args.slurm
 
-    train_sets = ["extrap_1", 
-                #   "extrap_2", "extrap_3"
-                  ]
+    train_sets = ["extrap_1", "extrap_2", "extrap_3"]
     seeds = [0]
 
     for seed in seeds:
         for train_set in train_sets:
-            if DEBUG:
-                experiment_name = "DEBUG"
-
+            experiment_name = "extrapolation"
+            experiment_name += f"-{train_set}-seed{seed}"
             config["SEED"] = seed
             config["TRAIN_SET"] = train_set
             config["SAVE_CKPT"] = True
-            config["DEV"] = "cuda:1" if torch.cuda.is_available() else "cpu"
+            config["DEV"] = "cuda:0"
+            config["VERBOSITY"] = 1 if SLURM else 2
+            config["WANDB"] = 'true' if args.wandb else 'false'
 
             # save args to disk
             args_path = os.path.join(ROOT, experiment_name, "args.yaml")
