@@ -34,8 +34,9 @@ def shell(Z, N):
 
     nup = np.array([abs(x - find_nearest(magic, x)) for x in Z])
     nun = np.array([abs(x - find_nearest(magic, x)) for x in N])
-    P = nup * nun / (nup + nun)
-    P[np.isnan(P)] = 0
+    P = np.array([nup * nun / (nup + nun) if nup + nun != 0 else 0 for nup, nun in zip(nup, nun)])
+    # P = nup * nun / (nup + nun)
+    # P[np.isnan(P)] = 0
     return alpham * P + betam * P**2
 
 
