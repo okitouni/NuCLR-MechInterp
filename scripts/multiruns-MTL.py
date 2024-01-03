@@ -79,7 +79,7 @@ if __name__ == "__main__":
     for seed in seeds:
         for target in targets:
             target_name = "+".join([f"{k}{v}" for k, v in target.items()])
-            experiment_name = "extrapolation"
+            experiment_name = "mtl"
             experiment_name += f"-{target_name}-seed{seed}"
             config["SEED"] = seed
             config["TARGETS_REGRESSION"] = target

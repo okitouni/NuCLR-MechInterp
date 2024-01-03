@@ -31,8 +31,8 @@ config = {
     "DEV": "cuda",
     "TARGETS_CLASSIFICATION": {},
     "TARGETS_REGRESSION": {
-        # "binding": 100,
-        "binding_bw2": 100,
+        "binding": 100,
+        # "binding_bw2": 100,
         # "binding_semf": 1,
         # "z": 1,
         # "n": 1,
