@@ -32,7 +32,7 @@ def preds_targets_zn(data, model, task_name, train=True):
     # it expects a numpy array, of shape (samples, features) where features is the number
     # of tasks we have.
     targets = data.y.view(-1, len(data.output_map)).cpu().numpy()
-    # targets = data.regression_transformer.inverse_transform(targets)
+    targets = data.regression_transformer.inverse_transform(targets)
     targets = targets.flatten()[mask.cpu().numpy()]
     targets = targets[scatter]
 
@@ -99,11 +99,11 @@ class PlottingContext:
             ax.text(x, y, s, fontsize=fontsize, c=c, **kwargs)
         return ax
 
-    def plot_embedding(embed, type="PCA", num_components=2):
+    def plot_embedding(embed, type="PCA", num_components=2, figscale=1):
         if type == "PCA":
             pca = PCA(n_components=num_components)
             embed = pca.fit_transform(embed)
-        fig = plt.figure(figsize=(15, 3 * num_components))
+        fig = plt.figure(figsize=(15*figscale, 3 * num_components*figscale))
         index = range(len(embed))
         for i in range(num_components - 1):
             colors = embed[:, i + 1]
@@ -113,18 +113,18 @@ class PlottingContext:
 
             # PC vs PC on first column
             plt.subplot(num_components - 1, 2, 2 * i + 1)
-            plt.scatter(embed[:, 0], embed[:, i + 1], c=colors)
+            plt.scatter(embed[:, 0], embed[:, i + 1], c=colors, s=5 * figscale)
             PlottingContext.scatter_text(
-                index, embed[:, 0], embed[:, i + 1], colors=colors, fontsize=8
+                index, embed[:, 0], embed[:, i + 1], colors=colors, fontsize=8*figscale
             )
             plt.xlabel("PC 0")
             plt.ylabel(f"PC {i + 1}")
 
             # PC vs index
             plt.subplot(num_components - 1, 2, 2 * i + 2)
-            plt.scatter(index, embed[:, i], c=colors)
+            plt.scatter(index, embed[:, i], c=colors, s=5 * figscale)
             PlottingContext.scatter_text(
-                index, index, embed[:, i], colors=colors, fontsize=8
+                index, index, embed[:, i], colors=colors, fontsize=8*figscale
             )
             plt.xlabel("Index")
             plt.ylabel(f"PC {i}")
