@@ -1,6 +1,5 @@
 """
-This experiment is to test generalization capabalities of the model to unseen "heavier" nuclei.
-We train on the inner island of nuclei, and test on outer nuclei (nearest neighbors in the training are 1,2, or 3 neutrons away).
+This experiment is to test generalization when trained on a single task vs multiple tasks at once. 
 """
 import torch
 import yaml
@@ -28,32 +27,20 @@ config = {
     "SIGMOID_READOUT": "false",
     "TMS": "remove",
     "WD": 0.01,
-    "DEV": "cuda",
+    "DEV": "cpu",
     "TARGETS_CLASSIFICATION": {},
-    "TARGETS_REGRESSION": {
-        "binding": 100,
-        # "binding_bw2": 100,
-        # "binding_semf": 1,
-        # "z": 1,
-        # "n": 1,
-        "radius": 0.02,
-        "qa": 200,
-        "qbm": 200,
-        "qbm_n": 200,
-        "qec": 200,
-        "sn": 200,
-        "sp": 200,
-    },
-    "TRAIN_FRAC": 1,
+    "TARGETS_REGRESSION": {},
+    "TRAIN_FRAC": 0.5,
     "LIPSCHITZ": "false",
-    "TRAIN_SET": "all_data",  # random, all_data, extrap_1, extrap_2, extrap_3
-    "BATCH_SIZE": 1024,
+    "TRAIN_SET": "random",  # random, all_data, extrap_1, extrap_2, extrap_3, random-all_same
+    "BATCH_SIZE": 0.5, # if less than one then it's a fraction of the dataset, otherwise it's the batch size
     "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
     "PER_NUCLEON": "false",
     "SAVE_CKPT": True,
     "VERBOSITY": 1,
+    "TAGS": ["mtl", "same budget"],
 }
 
 
@@ -63,19 +50,43 @@ if __name__ == "__main__":
     DEBUG = args.debug
     SLURM = args.slurm
 
-    train_sets = ["extrap_1", "extrap_2", "extrap_3"]
+    targets = [
+        # {"binding": 100},
+        # {"z": 1},
+        # {"n": 1},
+        # {"radius": 0.02},
+        # {"qa": 200},
+        # {"qbm": 200},
+        # {"qbm_n": 200},
+        # {"qec": 200},
+        # {"sn": 200},
+        # {"sp": 200},
+        {"control": 1},
+        # {
+        #     "binding": 100,
+        #     "z": 1,
+        #     "n": 1,
+        #     "radius": 0.02,
+        #     "qa": 200,
+        #     "qbm": 200,
+        #     "qbm_n": 200,
+        #     "qec": 200,
+        #     "sn": 200,
+        #     "sp": 200,
+        #     "control": 1,
+        # },
+    ]
     seeds = [0]
 
     for seed in seeds:
-        for train_set in train_sets:
-            experiment_name = "extrapolation"
-            experiment_name += f"-{train_set}-seed{seed}"
+        for target in targets:
+            target_name = "+".join([f"{k}{v}" for k, v in target.items()])
+            experiment_name = "mtl"
+            experiment_name += f"-{target_name}-seed{seed}"
             config["SEED"] = seed
-            config["TRAIN_SET"] = train_set
-            config["SAVE_CKPT"] = True
-            config["DEV"] = "cuda:0"
+            config["TARGETS_REGRESSION"] = target
             config["VERBOSITY"] = 1 if SLURM else 2
-            config["WANDB"] = 'true' if args.wandb else 'false'
+            config["WANDB"] = "true" if args.wandb else "false"
 
             # save args to disk
             args_path = os.path.join(ROOT, experiment_name, "args.yaml")

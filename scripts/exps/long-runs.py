@@ -1,8 +1,7 @@
 """
-This experiment is to test generalization capabalities of the model to unseen "heavier" nuclei.
-We train on the inner island of nuclei, and test on outer nuclei (nearest neighbors in the training are 1,2, or 3 neutrons away).
+This experiment is to generate representations based on all the training data.
+We train for a very long time with small learning rate.
 """
-import torch
 import yaml
 import os
 import sys
@@ -19,21 +18,21 @@ parser.add_argument("--wandb", "-w", action="store_true", help="save to wandb")
 
 
 config = {
-    "DEPTH": 4,
+    "DEPTH": 2,
     "DEV": "cuda",
-    "EPOCHS": 50_000,
+    "EPOCHS": 200_000,
     "HIDDEN_DIM": 2048,
     "LR": 0.0001,
     "MODEL": "baseline",
     "SIGMOID_READOUT": "false",
     "TMS": "remove",
     "WD": 0.01,
-    "DEV": "cpu",
+    "DEV": "cuda",
     "TARGETS_CLASSIFICATION": {},
     "TARGETS_REGRESSION": {},
-    "TRAIN_FRAC": 0.5,
+    "TRAIN_FRAC": 1,
     "LIPSCHITZ": "false",
-    "TRAIN_SET": "random",  # random, all_data, extrap_1, extrap_2, extrap_3, random-all_same
+    "TRAIN_SET": "all",  # random, all_data, extrap_1, extrap_2, extrap_3, random-all_same
     "BATCH_SIZE": 0.2, # if less than one then it's a fraction of the dataset, otherwise it's the batch size
     "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
@@ -61,7 +60,6 @@ if __name__ == "__main__":
         {"qec": 200},
         {"sn": 200},
         {"sp": 200},
-        {"control": 1},
         {
             "binding": 100,
             "z": 1,
@@ -73,7 +71,6 @@ if __name__ == "__main__":
             "qec": 200,
             "sn": 200,
             "sp": 200,
-            "control": 1,
         },
     ]
     seeds = [0]
@@ -81,7 +78,7 @@ if __name__ == "__main__":
     for seed in seeds:
         for target in targets:
             target_name = "+".join([f"{k}{v}" for k, v in target.items()])
-            experiment_name = "mtl"
+            experiment_name = "long_run"
             experiment_name += f"-{target_name}-seed{seed}"
             config["SEED"] = seed
             config["TARGETS_REGRESSION"] = target

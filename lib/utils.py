@@ -153,7 +153,7 @@ class IO:
 
     def load_latest_model(path):
         final_model = os.path.join(path, "model.pt")
-        if os.path.exists(final_model) and False:
+        if os.path.exists(final_model):
             return final_model
         else:
             path = os.path.join(path, "ckpts")

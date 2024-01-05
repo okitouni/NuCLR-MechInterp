@@ -2,5 +2,7 @@ __pycache__
 checkpoints/
 data/
 plots/
-results/
+experiments/
+logs/
+wandb/
 .vscode

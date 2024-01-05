@@ -40,7 +40,11 @@ if __name__ == "__main__":
     )
 
     if args.WANDB == "true":
-        wandb.init(project="nuclr-mechinterp")
+        if hasattr(args, "TAGS"):
+            tags = args.TAGS
+        else:
+            tags = []
+        wandb.init(project="nuclr-mechinterp", tags=tags, dir='/tmp/kitouni')
         wandb.config.update(args)
         # save code as artifact
         # wandb.save(f"{root}/scripts")
