@@ -385,12 +385,12 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
     # )
     feature_transformer = MinMaxScaler()
     if len(reg_columns) > 0:
-        targets[reg_columns] = feature_transformer.fit_transform(
-            targets[reg_columns].values
-        )
-        # feature_transformer.fit(
+        # targets[reg_columns] = feature_transformer.fit_transform(
         #     targets[reg_columns].values
         # )
+        feature_transformer.fit(
+            targets[reg_columns].values
+        )
 
     # don't consider nuclei with high uncertainty in binding energy
     # TODO removed this for mech interp model

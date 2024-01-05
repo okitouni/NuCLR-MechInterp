@@ -32,7 +32,7 @@ def preds_targets_zn(data, model, task_name, train=True):
     # it expects a numpy array, of shape (samples, features) where features is the number
     # of tasks we have.
     targets = data.y.view(-1, len(data.output_map)).cpu().numpy()
-    targets = data.regression_transformer.inverse_transform(targets)
+    # targets = data.regression_transformer.inverse_transform(targets)
     targets = targets.flatten()[mask.cpu().numpy()]
     targets = targets[scatter]
 
