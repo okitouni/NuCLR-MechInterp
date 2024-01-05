@@ -21,6 +21,7 @@ parser.add_argument("--device", "-dev", type=str, help="device to run on")
 parser.add_argument(
     "--root", "-r", type=str, help="logdir", default="./results"
 )
+parser.add_argument("--name", "-n", type=str, help="name of run", default=None)
 
 if __name__ == "__main__":
     # root is the parent of the directory containing this script
@@ -40,11 +41,8 @@ if __name__ == "__main__":
     )
 
     if args.WANDB == "true":
-        if hasattr(args, "TAGS"):
-            tags = args.TAGS
-        else:
-            tags = []
-        wandb.init(project="nuclr-mechinterp", tags=tags, dir='/tmp/kitouni')
+        tags = args.TAGS if hasattr(args, "TAGS") else []
+        wandb.init(project="nuclr-mechinterp", tags=tags, dir='/tmp/kitouni', name=script_args.name)
         wandb.config.update(args)
         # save code as artifact
         # wandb.save(f"{root}/scripts")

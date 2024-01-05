@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
             # run the pipeline
             try:
-                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT}"
+                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT} --name {experiment_name}"
                 print("Running:", pipeline_cmd)
                 if SLURM:
                     Slurm.create_job(pipeline_cmd, experiment_name)
