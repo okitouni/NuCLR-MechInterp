@@ -86,10 +86,11 @@ if __name__ == "__main__":
     pbar = range(args.EPOCHS)
     if args.VERBOSITY > 1:
         pbar = tqdm(pbar)
+    bs = args.BATCH_SIZE if args.BATCH_SIZE > 1 else int(X_train.shape[0] * args.BATCH_SIZE)
     for epoch in pbar:
         torch.randperm(X_train.shape[0], out=indices)
-        for batch_idx in range(0, X_train.shape[0], args.BATCH_SIZE):
-            batch = indices[batch_idx : batch_idx + args.BATCH_SIZE]
+        for batch_idx in range(0, X_train.shape[0], bs):
+            batch = indices[batch_idx : batch_idx + bs]
             X_batch = X_train[batch]
             y_batch = y_train[batch]
 

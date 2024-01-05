@@ -253,7 +253,7 @@ def get_targets(df, per_nucleon=False):
     targets["coulomb"] = (targets.z**2 - targets.z) / targets.volume ** (
         1 / 3
     )  # coulomb
-
+    targets['control'] = np.random.Generator(np.random.PCG64(42)).normal(size=len(targets))
     return targets
 
 
@@ -422,8 +422,10 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
     )
 
     if config.TRAIN_SET == "all":
-        data = fix_mask(data, all_same=True)
+        data = fix_mask(data, all_same=True, rate=1)
         config.TRAIN_FRAC = 1.0
+    elif config.TRAIN_SET == "random-all_same":
+        data = fix_mask(data, all_same=True, rate=config.TRAIN_FRAC)
     elif "extrap" in config.TRAIN_SET:
         distance = int(config.TRAIN_SET.split("_")[1])
         data = remove_edges(data, distance)
@@ -432,14 +434,14 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
 
 
 
-def fix_mask(data, all_same=True):
+def fix_mask(data, all_same=True, rate=1):
     """all_same makes every task have the same mask, otherwise each task has it's own mask given by the order of the task"""
     gen = torch.Generator().manual_seed(42)
     if all_same:
-        new_train_mask = torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < 1
+        new_train_mask = torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < rate
         new_train_mask = new_train_mask.repeat_interleave(len(data.output_map))
     else:
-        new_train_mask = [torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < 0.8 for _ in range(len(data.output_map))]
+        new_train_mask = [torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < rate for _ in range(len(data.output_map))]
         new_train_mask = torch.cat(new_train_mask)
     new_train_mask = new_train_mask.to(data.train_mask.device)
     data = data._replace(train_mask=new_train_mask)

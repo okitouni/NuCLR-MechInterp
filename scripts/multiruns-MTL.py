@@ -33,8 +33,8 @@ config = {
     "TARGETS_REGRESSION": {},
     "TRAIN_FRAC": 0.5,
     "LIPSCHITZ": "false",
-    "TRAIN_SET": "random",  # random, all_data, extrap_1, extrap_2, extrap_3
-    "BATCH_SIZE": 1024,
+    "TRAIN_SET": "random",  # random, all_data, extrap_1, extrap_2, extrap_3, random-all_same
+    "BATCH_SIZE": 0.2, # if less than one then it's a fraction of the dataset, otherwise it's the batch size
     "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
@@ -61,6 +61,7 @@ if __name__ == "__main__":
         {"qec": 200},
         {"sn": 200},
         {"sp": 200},
+        {"control": 1},
         {
             "binding": 100,
             "z": 1,
@@ -72,6 +73,7 @@ if __name__ == "__main__":
             "qec": 200,
             "sn": 200,
             "sp": 200,
+            "control": 1,
         },
     ]
     seeds = [0]
@@ -83,8 +85,6 @@ if __name__ == "__main__":
             experiment_name += f"-{target_name}-seed{seed}"
             config["SEED"] = seed
             config["TARGETS_REGRESSION"] = target
-            config["SAVE_CKPT"] = True
-            config["DEV"] = "cuda:0"
             config["VERBOSITY"] = 1 if SLURM else 2
             config["WANDB"] = "true" if args.wandb else "false"
 
