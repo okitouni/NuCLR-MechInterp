@@ -5,4 +5,6 @@ plots/
 experiments/
 logs/
 wandb/
+nuclr_files.tar
+spiral/
 .vscode
