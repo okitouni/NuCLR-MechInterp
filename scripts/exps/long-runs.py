@@ -19,7 +19,6 @@ parser.add_argument("--wandb", "-w", action="store_true", help="save to wandb")
 
 config = {
     "DEPTH": 2,
-    "DEV": "cuda",
     "EPOCHS": 200_000,
     "HIDDEN_DIM": 2048,
     "LR": 0.0001,

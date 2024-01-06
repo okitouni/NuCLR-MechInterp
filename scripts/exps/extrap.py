@@ -20,7 +20,6 @@ parser.add_argument("--wandb", "-w", action="store_true", help="save to wandb")
 
 config = {
     "DEPTH": 4,
-    "DEV": "cuda",
     "EPOCHS": 50_000,
     "HIDDEN_DIM": 2048,
     "LR": 0.0001,
@@ -47,7 +46,7 @@ config = {
     "TRAIN_FRAC": 1,
     "LIPSCHITZ": "false",
     "TRAIN_SET": "all_data",  # random, all_data, extrap_1, extrap_2, extrap_3
-    "BATCH_SIZE": 0.2,
+    "BATCH_SIZE": 0.5,
     "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
