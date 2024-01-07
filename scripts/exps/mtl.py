@@ -33,11 +33,11 @@ config = {
     "LIPSCHITZ": "false",
     "TRAIN_SET": "random",  # random, all_data, extrap_1, extrap_2, extrap_3, random-all_same
     "BATCH_SIZE": 0.5, # if less than one then it's a fraction of the dataset, otherwise it's the batch size
-    "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
     "PER_NUCLEON": "false",
-    "SAVE_CKPT": True,
+    "LOG_TIMES": 100,
+    "SAVE_CKPT": 5,
     "VERBOSITY": 1,
     "TAGS": ["mtl", "same budget"],
 }
@@ -50,30 +50,30 @@ if __name__ == "__main__":
     SLURM = args.slurm
 
     targets = [
-        # {"binding": 100},
-        # {"z": 1},
-        # {"n": 1},
-        # {"radius": 0.02},
-        # {"qa": 200},
-        # {"qbm": 200},
-        # {"qbm_n": 200},
-        # {"qec": 200},
-        # {"sn": 200},
-        # {"sp": 200},
-        {"control": 10},
-        {
-            "binding": 100,
-            "z": 1,
-            "n": 1,
-            "radius": 0.02,
-            "qa": 200,
-            "qbm": 200,
-            "qbm_n": 200,
-            "qec": 200,
-            "sn": 200,
-            "sp": 200,
-            "control": 10,
-        },
+        {"binding": 100},
+        {"z": 1},
+        {"n": 1},
+        {"radius": 0.02},
+        {"qa": 200},
+        {"qbm": 200},
+        {"qbm_n": 200},
+        {"qec": 200},
+        {"sn": 200},
+        {"sp": 200},
+        # {"control": 10},
+        # {
+        #     "binding": 100,
+        #     "z": 1,
+        #     "n": 1,
+        #     "radius": 0.02,
+        #     "qa": 200,
+        #     "qbm": 200,
+        #     "qbm_n": 200,
+        #     "qec": 200,
+        #     "sn": 200,
+        #     "sp": 200,
+        #     "control": 10,
+        # },
     ]
     seeds = [0]
 

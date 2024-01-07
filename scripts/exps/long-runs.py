@@ -33,11 +33,11 @@ config = {
     "LIPSCHITZ": "false",
     "TRAIN_SET": "all",  # random, all_data, extrap_1, extrap_2, extrap_3, random-all_same
     "BATCH_SIZE": 0.2, # if less than one then it's a fraction of the dataset, otherwise it's the batch size
-    "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
     "PER_NUCLEON": "false",
-    "SAVE_CKPT": True,
+    "LOG_TIMES": 100,
+    "SAVE_CKPT": 5,
     "VERBOSITY": 1,
 }
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
             # run the pipeline
             try:
-                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT}"
+                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT} --name {experiment_name}"
                 print("Running:", pipeline_cmd)
                 if SLURM:
                     Slurm.create_job(pipeline_cmd, experiment_name)

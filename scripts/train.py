@@ -91,7 +91,7 @@ if __name__ == "__main__":
     bs = args.BATCH_SIZE if args.BATCH_SIZE > 1 else int(X_train.shape[0] * args.BATCH_SIZE)
     for epoch in pbar:
         torch.randperm(X_train.shape[0], out=indices)
-        for batch_idx in range(0, X_train.shape[0], bs):
+        for batch_idx in range(0, X_train.shape[0]//bs * bs, bs):
             batch = indices[batch_idx : batch_idx + bs]
             X_batch = X_train[batch]
             y_batch = y_train[batch]
@@ -123,12 +123,11 @@ if __name__ == "__main__":
                 print(f"Val RMS: {val_rms[0]:.2f} ({val_rms[1]:.2f})")
                 if args.WANDB == "true":
                     wandb.log({f"val/{main_task_name}/rms": val_rms[0]})
-            if args.SAVE_CKPT:
-                os.makedirs(f"{result_dir}/ckpts", exist_ok=True)
-                torch.save(
-                    new_model.state_dict(), f"{result_dir}/ckpts/model-{epoch}.pt"
-                )
-                # wandb.save(f"{result_dir}/ckpts/model-{epoch}.pt")
+        if epoch % (args.EPOCHS // args.SAVE_CKPT) ==0:
+            os.makedirs(f"{result_dir}/ckpts", exist_ok=True)
+            torch.save(
+                new_model.state_dict(), f"{result_dir}/ckpts/model-{epoch}.pt"
+            )
 
     # save model
     torch.save(new_model.state_dict(), f"{result_dir}/ckpts/model.pt")
