@@ -151,15 +151,18 @@ class IO:
             args = Namespace(**args)
         return args
 
-    def load_latest_model(path):
-        final_model = os.path.join(path, "model.pt")
+    def load_latest_model(path, verbose=True):
+        final_model = os.path.join(path, "ckpts/model.pt")
         if os.path.exists(final_model):
-            return final_model
+            model = final_model
         else:
             path = os.path.join(path, "ckpts")
             ckpts = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(".pt")]
-            ckpts.sort(key=os.path.getmtime)
-            return ckpts[-1]
+            ckpts.sort(key=lambda x: int(x.split('/')[-1].split('.')[0].split('-')[-1]) if x.split('/')[-1].split('.')[0].split('-')[-1].isdigit() else float('-inf'))
+            model = ckpts[-1]
+        if verbose:
+            print(f"Loading model from {model}")
+        return model
 
     def get_root():
         return "/export/d0/kitouni/NuCLR-MechInterp-results"
@@ -218,8 +221,7 @@ class Physics:
 
         nup = np.array([abs(x - find_nearest(magic, x)) for x in Z])
         nun = np.array([abs(x - find_nearest(magic, x)) for x in N])
-        P = nup * nun / (nup + nun)
-        P[np.isnan(P)] = 0
+        P = np.array([nup * nun / (nup + nun) if nup + nun != 0 else 0 for nup, nun in zip(nup, nun)])
         return alpham * P + betam * P**2
 
 
