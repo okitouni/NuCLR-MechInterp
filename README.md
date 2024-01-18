@@ -16,3 +16,13 @@ Here are **very rough ideas for things to try:**
 4. Revisiting training to make things interpretable by design. Use various tricks like [SoLU activation](https://transformer-circuits.pub/2022/solu/index.html), compositional architecture (RNN?), [local neurons](https://arxiv.org/pdf/2305.08746.pdf), effective dimension regularization, etc.
 
 ![Alt text](docs/paper_fig1.png)
+
+
+## Getting Started
+The scripts can be run in the following way:
+```
+python -m scripts.pipeline --exp <experiment_name> --train --plot
+```
+Running as a Python module ensures that the paths are set correctly and `lib` can be loaded correctly. 
+The `--exp` flag specifies the experiment name, which is used to create a folder in `experiments/` to store the results. 
+The `--train` flag specifies that the model should be trained. The `--plot` flag specifies that the results should be plotted.
