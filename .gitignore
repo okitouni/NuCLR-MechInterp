@@ -6,3 +6,5 @@ experiments/
 logs/
 wandb/
 .vscode
+hall_of_fame*
+*.npy
