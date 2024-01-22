@@ -8,5 +8,8 @@ wandb/
 nuclr_files.tar
 spiral/
 .vscode
+hall_of_fame*
+*.npy
+
 fits/
 fits_mtl_be/

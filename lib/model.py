@@ -6,6 +6,7 @@ import mup
 import warnings
 from typing import Callable, Iterable
 from .data import Data
+from .utils import inverse_transform
 import os
 import torch.nn.utils.parametrize as p
 
@@ -33,14 +34,6 @@ class Base(nn.Module):
                 [nn.Embedding(v, self.embedding_dim).weight for v in self.vocab_size]
             )
         self.hidden_dim = hidden_dim
-
-    def forward_with_embeddings(self, x, embs):
-        # x = self.embed_input(x, embs)
-        # implement this
-        raise NotImplementedError()
-
-    def forward(self, x):
-        return self.forward_with_embeddings(x, self.emb)
 
     def embed_input(self, x, embs):
         if self.share_embeddings:
@@ -89,7 +82,7 @@ class BaselineModel(Base):
         hidden_dim: int,
         output_dim: int,
         depth: int = 2,
-        lipschitz: bool = False,
+        output_transform: Callable = None,
     ):
         """
         :param vocab_size: number of tokens in the vocabulary,
@@ -109,11 +102,25 @@ class BaselineModel(Base):
             ],
         )
         self.readout = nn.Linear(hidden_dim, output_dim)
+        self.output_transform = output_transform
 
-    def forward_with_embeddings(self, x, embs):  # embs: [ batch_size, 2 * hidden_dim ]
+    def forward(self, x, return_shape='task'):
+        return self.forward_with_embeddings(x, self.emb, return_shape)
+
+    def forward_with_embeddings(self, x, embs, return_shape='task', apply_transform=True):  # embs: [ batch_size, 2 * hidden_dim ]
+        task_idx = x[:, [2]]
         x = self.embed_input(x, embs)
         x = self.nonlinear(x)  # [ batch_size, hidden_dim ]
-        return self.readout(x)  # [ batch_size, output_dim ]
+        x = self.readout(x)  # [ batch_size, output_dim ]
+        if apply_transform and hasattr(self, "output_transform") and self.output_transform:
+            x = self.output_transform(x)
+        if return_shape == 'all':
+            return x
+        elif return_shape == 'task':
+            x = x.gather(1, task_idx)
+        else:
+            raise ValueError(f"Unknown return_shape: {return_shape}")
+        return x
 
 
 def get_model_fn(config):
@@ -204,7 +211,7 @@ def get_model_and_optim(data: Data, config, shape_file=None):
         non_embedded_input_dim=data.X.shape[1] - len(data.vocab_size),
         output_dim=output_dim,
         depth=config.DEPTH,
-        lipschitz=config.LIPSCHITZ == "true",
+        output_transform=partial(inverse_transform, data=data),
     )
     model = make_mup(model_fn, shape_file, hidden_dim=config.HIDDEN_DIM).to(config.DEV)
     # model = model_fn(hidden_dim=config.HIDDEN_DIM).to(config.DEV)
