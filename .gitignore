@@ -8,3 +8,5 @@ wandb/
 nuclr_files.tar
 spiral/
 .vscode
+fits/
+fits_mtl_be/
