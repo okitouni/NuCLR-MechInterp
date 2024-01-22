@@ -181,7 +181,12 @@ class IO:
         return model
 
     def get_root():
-        return "/export/d0/kitouni/NuCLR-MechInterp-results"
+      if "fair" in os.uname().nodename:
+        return f"/checkpoint/{os.getlogin()}/NuCLR-MechInterp-results"
+      elif "submit" in os.uname().nodename:
+        return f"/export/d0/{os.getlogin()}/NuCLR-MechInterp-results"
+      else:
+          raise ValueError("Unknown machine {}".format(os.uname().nodename))
 
 
 class Physics:
@@ -312,13 +317,14 @@ class Slurm:
 #SBATCH --error=logs/{name}-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=10
 #SBATCH --gres=gpu:1
 #SBATCH --mem=24G
 #SBATCH --time=24:00:00
 #SBATCH --partition={partition}
-
-module load conda
+{constraint_cmd}
+"""
+    conda = """module load conda
 conda activate {conda_env}
 """
 
@@ -332,13 +338,22 @@ conda activate {conda_env}
         if "submit" in host:
             partition = "submit-gpu"
             conda_env = "sandbox"
+            constraint_cmd = ""
+        elif "fair" in host:
+            partition = "learnlab"
+            conda_env = "pytorch"
+            constraint_cmd = "#SBATCH --constraint=volta"
         else:
             partition = "gpu,iaifi_gpu"
             conda_env = "torchdos"
+            constraint_cmd = ""
+        
         slurm_scripts_path = Path("logs/scripts")
         os.makedirs(slurm_scripts_path, exist_ok=True)
 
-        job = cls.slurm_job.format(name=name, partition=partition, conda_env=conda_env)
+        job = cls.slurm_job.format(name=name, partition=partition, constraint_cmd=constraint_cmd)
+        if "fair" not in host:
+            job += cls.conda.format(conda_env=conda_env) # for fair this doesn't work
         job += cmd_base
         job_name = slurm_scripts_path / f"{name}.sh"
         with open(job_name, "w") as f:
