@@ -7,7 +7,13 @@ from argparse import Namespace
 import os
 import subprocess
 from pathlib import Path
+import torch
 
+
+def inverse_transform(tensor, data):
+    min_ = torch.from_numpy(data.regression_transformer.data_min_).float().to(tensor.device)
+    max_ = torch.from_numpy(data.regression_transformer.data_max_).float().to(tensor.device)
+    return tensor * (max_ - min_) + min_
 
 
 def preds_targets_zn(data, model, task_name, train=True):
@@ -76,7 +82,7 @@ def get_rms_no_outliers(preds, targets, zn, percentile=99, scale_by_A=False):
 class PlottingContext:
     def plot_predictions(data, model, task_name, train=True):
         preds, targets, zn = preds_targets_zn(data, model, task_name, train)
-        rms = get_rms(preds, targets, zn, scale_by_A="binding"in task_name)
+        rms = get_rms(preds, targets, zn, scale_by_A="binding" in task_name)
 
         plt.plot(targets, preds, "o")
         plt.xlabel("Target")
@@ -103,7 +109,7 @@ class PlottingContext:
         if type == "PCA":
             pca = PCA(n_components=num_components)
             embed = pca.fit_transform(embed)
-        fig = plt.figure(figsize=(15*figscale, 3 * num_components*figscale))
+        fig = plt.figure(figsize=(15 * figscale, 3 * num_components * figscale))
         index = range(len(embed))
         for i in range(num_components - 1):
             colors = embed[:, i + 1]
@@ -115,7 +121,11 @@ class PlottingContext:
             plt.subplot(num_components - 1, 2, 2 * i + 1)
             plt.scatter(embed[:, 0], embed[:, i + 1], c=colors, s=5 * figscale)
             PlottingContext.scatter_text(
-                index, embed[:, 0], embed[:, i + 1], colors=colors, fontsize=8*figscale
+                index,
+                embed[:, 0],
+                embed[:, i + 1],
+                colors=colors,
+                fontsize=8 * figscale,
             )
             plt.xlabel("PC 0")
             plt.ylabel(f"PC {i + 1}")
@@ -124,7 +134,7 @@ class PlottingContext:
             plt.subplot(num_components - 1, 2, 2 * i + 2)
             plt.scatter(index, embed[:, i], c=colors, s=5 * figscale)
             PlottingContext.scatter_text(
-                index, index, embed[:, i], colors=colors, fontsize=8*figscale
+                index, index, embed[:, i], colors=colors, fontsize=8 * figscale
             )
             plt.xlabel("Index")
             plt.ylabel(f"PC {i}")
@@ -151,22 +161,44 @@ class IO:
             args = Namespace(**args)
         return args
 
-    def load_latest_model(path):
-        final_model = os.path.join(path, "model.pt")
+    def load_latest_model(path, verbose=True):
+        final_model = os.path.join(path, "ckpts/model.pt")
         if os.path.exists(final_model):
-            return final_model
+            model = final_model
         else:
             path = os.path.join(path, "ckpts")
-            ckpts = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(".pt")]
-            ckpts.sort(key=os.path.getmtime)
-            return ckpts[-1]
+            ckpts = [
+                os.path.join(path, f) for f in os.listdir(path) if f.endswith(".pt")
+            ]
+            ckpts.sort(
+                key=lambda x: int(x.split("/")[-1].split(".")[0].split("-")[-1])
+                if x.split("/")[-1].split(".")[0].split("-")[-1].isdigit()
+                else float("-inf")
+            )
+            model = ckpts[-1]
+        if verbose:
+            print(f"Loading model from {model}")
+        return model
 
     def get_root():
         return "/export/d0/kitouni/NuCLR-MechInterp-results"
 
 
 class Physics:
-    all_funcs = ['pairing', 'volume', 'surface', 'coulomb', 'asymmetry', 'SEMF', 'shell', 'rotational', 'exchange', 'wigner', 'strutinsky', 'BW2']
+    all_funcs = [
+        "pairing",
+        "volume",
+        "surface",
+        "coulomb",
+        "asymmetry",
+        "SEMF",
+        "shell",
+        "rotational",
+        "exchange",
+        "wigner",
+        "strutinsky",
+        "BW2",
+    ]
 
     def pairing(Z, N):
         A = Z + N
@@ -176,36 +208,36 @@ class Physics:
         delta[A % 1 == 1] = 0
         return delta
 
-
     def volume(Z, N):
         A = Z + N
         aV = 15.75
         return aV * A
-
 
     def surface(Z, N):
         A = Z + N
         aS = 17.8
         return aS * A ** (2 / 3)
 
-
     def coulomb(Z, N):
         A = Z + N
         aC = 0.711
         return aC * Z * (Z - 1) / (A ** (1 / 3))
-
 
     def asymmetry(Z, N):
         A = Z + N
         aA = 23.7
         return aA * (N - Z) ** 2 / A
 
-
     def SEMF(Z, N):
-        Eb = Physics.volume(Z, N) - Physics.surface(Z, N) - Physics.coulomb(Z, N) - Physics.asymmetry(Z, N) + Physics.pairing(Z, N)
+        Eb = (
+            Physics.volume(Z, N)
+            - Physics.surface(Z, N)
+            - Physics.coulomb(Z, N)
+            - Physics.asymmetry(Z, N)
+            + Physics.pairing(Z, N)
+        )
         Eb[Eb < 0] = 0
         return Eb / (Z + N) * 1000  # keV
-
 
     def shell(Z, N):
         # calculates the shell effects according to "Mutual influence of terms in a semi-empirical" Kirson
@@ -218,30 +250,29 @@ class Physics:
 
         nup = np.array([abs(x - find_nearest(magic, x)) for x in Z])
         nun = np.array([abs(x - find_nearest(magic, x)) for x in N])
-        P = nup * nun / (nup + nun)
-        P[np.isnan(P)] = 0
+        P = np.array(
+            [
+                nup * nun / (nup + nun) if nup + nun != 0 else 0
+                for nup, nun in zip(nup, nun)
+            ]
+        )
         return alpham * P + betam * P**2
-
 
     def rotational(Z, N):
         aR = 14.77
         return aR * (Z + N) ** (1 / 3)
 
-
     def exchange(Z, N):
         aX = 2.22
         return aX * Z ** (4 / 3) / (N + Z) ** (1 / 3)
-
 
     def wigner(Z, N):
         aW = -43.4
         return aW * (N - Z) ** 2 / (N + Z)
 
-
     def strutinsky(Z, N):
         aS = 55.62
         return aS * (N - Z) ** 2 / (N + Z) ** (4 / 3)
-
 
     def BW2(Z, N):
         A = N + Z
@@ -257,15 +288,15 @@ class Physics:
 
         Eb = (
             aV * A  # volume
-            + aS * A ** (2 / 3) # surface
-            + aC * Z**2 / (A ** (1 / 3)) # coulomb
-            + aA * (N - Z) ** 2 / A # asymmetry
+            + aS * A ** (2 / 3)  # surface
+            + aC * Z**2 / (A ** (1 / 3))  # coulomb
+            + aA * (N - Z) ** 2 / A  # asymmetry
             + Physics.pairing(Z, N)  # pairing
-            + Physics.shell(Z, N) # shell
-            + aR * A ** (1 / 3) # rotational
-            + axC * Z ** (4 / 3) / A ** (1 / 3) # exchange
-            + aW * abs(N - Z) / A # Wigner
-            + ast * (N - Z) ** 2 / A ** (4 / 3) # Strutinsky
+            + Physics.shell(Z, N)  # shell
+            + aR * A ** (1 / 3)  # rotational
+            + axC * Z ** (4 / 3) / A ** (1 / 3)  # exchange
+            + aW * abs(N - Z) / A  # Wigner
+            + ast * (N - Z) ** 2 / A ** (4 / 3)  # Strutinsky
         )
 
         Eb[Eb < 0] = 0
@@ -293,7 +324,11 @@ conda activate {conda_env}
 
     @classmethod
     def create_job(cls, cmd_base, name):
-        host = subprocess.run(["hostname"], stdout=subprocess.PIPE).stdout.decode("utf-8").strip()
+        host = (
+            subprocess.run(["hostname"], stdout=subprocess.PIPE)
+            .stdout.decode("utf-8")
+            .strip()
+        )
         if "submit" in host:
             partition = "submit-gpu"
             conda_env = "sandbox"
@@ -303,7 +338,7 @@ conda activate {conda_env}
         slurm_scripts_path = Path("logs/scripts")
         os.makedirs(slurm_scripts_path, exist_ok=True)
 
-        job = cls.slurm_job.format(name=name, partition=partition, conda_env=conda_env) 
+        job = cls.slurm_job.format(name=name, partition=partition, conda_env=conda_env)
         job += cmd_base
         job_name = slurm_scripts_path / f"{name}.sh"
         with open(job_name, "w") as f:

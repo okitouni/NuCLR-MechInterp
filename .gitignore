@@ -8,3 +8,5 @@ wandb/
 nuclr_files.tar
 spiral/
 .vscode
+hall_of_fame*
+*.npy

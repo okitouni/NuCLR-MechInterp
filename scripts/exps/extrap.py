@@ -47,11 +47,11 @@ config = {
     "LIPSCHITZ": "false",
     "TRAIN_SET": "all_data",  # random, all_data, extrap_1, extrap_2, extrap_3
     "BATCH_SIZE": 0.5,
-    "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
     "PER_NUCLEON": "false",
-    "SAVE_CKPT": True,
+    "LOG_TIMES": 100,
+    "SAVE_CKPT": 5,
     "VERBOSITY": 1,
 }
 
@@ -71,8 +71,6 @@ if __name__ == "__main__":
             experiment_name += f"-{train_set}-seed{seed}"
             config["SEED"] = seed
             config["TRAIN_SET"] = train_set
-            config["SAVE_CKPT"] = True
-            config["DEV"] = "cuda:0"
             config["VERBOSITY"] = 1 if SLURM else 2
             config["WANDB"] = 'true' if args.wandb else 'false'
 
@@ -83,7 +81,7 @@ if __name__ == "__main__":
 
             # run the pipeline
             try:
-                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT}"
+                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT} --name {experiment_name}"
                 print("Running:", pipeline_cmd)
                 if SLURM:
                     Slurm.create_job(pipeline_cmd, experiment_name)

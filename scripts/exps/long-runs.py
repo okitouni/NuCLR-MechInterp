@@ -2,6 +2,7 @@
 This experiment is to generate representations based on all the training data.
 We train for a very long time with small learning rate.
 """
+import torch
 import yaml
 import os
 import sys
@@ -19,6 +20,7 @@ parser.add_argument("--wandb", "-w", action="store_true", help="save to wandb")
 
 config = {
     "DEPTH": 2,
+    "DEV": "cuda",
     "EPOCHS": 200_000,
     "HIDDEN_DIM": 2048,
     "LR": 0.0001,
@@ -26,19 +28,19 @@ config = {
     "SIGMOID_READOUT": "false",
     "TMS": "remove",
     "WD": 0.01,
-    "DEV": "cuda",
     "TARGETS_CLASSIFICATION": {},
     "TARGETS_REGRESSION": {},
     "TRAIN_FRAC": 1,
     "LIPSCHITZ": "false",
     "TRAIN_SET": "all",  # random, all_data, extrap_1, extrap_2, extrap_3, random-all_same
     "BATCH_SIZE": 0.2, # if less than one then it's a fraction of the dataset, otherwise it's the batch size
-    "LOG_TIMES": 10,
     "NUCLEI_GE": 0,
     "NUCLEI_HIGH_UNC": "keep",
     "PER_NUCLEON": "false",
-    "SAVE_CKPT": True,
+    "LOG_TIMES": 100,
+    "SAVE_CKPT": 5,
     "VERBOSITY": 1,
+    "TAGS": ["long-run"],
 }
 
 
@@ -91,7 +93,7 @@ if __name__ == "__main__":
 
             # run the pipeline
             try:
-                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT}"
+                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT} --name {experiment_name}"
                 print("Running:", pipeline_cmd)
                 if SLURM:
                     Slurm.create_job(pipeline_cmd, experiment_name)
