@@ -8,6 +8,7 @@ import os
 import subprocess
 from pathlib import Path
 import torch
+import pickle
 
 
 def inverse_transform(tensor, data):
@@ -187,6 +188,11 @@ class IO:
         return f"/export/d0/{os.getlogin()}/NuCLR-MechInterp-results"
       else:
           raise ValueError("Unknown machine {}".format(os.uname().nodename))
+
+    def dump_pickle(obj, path):
+
+        with open(path, "wb") as f:
+            pickle.dump(obj, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 class Physics:
