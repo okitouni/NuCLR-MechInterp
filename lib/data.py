@@ -86,6 +86,21 @@ def semi_empirical_mass_formula(Z, N):
     Eb[Eb < 0] = 0
     return Eb / A * 1000  # keV
 
+def semi_empirical_mass_formula_individual(Z, N):
+    A = N + Z
+    aV = 15.75
+    aS = 17.8
+    aC = 0.711
+    aA = 23.7
+    Eb = (
+        aV * A,
+        -1 * aS * A ** (2 / 3),
+        -1 * aC * Z * (Z - 1) / (A ** (1 / 3)),
+        -1 * aA * (N - Z) ** 2 / A,
+        delta(Z, N),
+    )
+    return tuple(i / A * 1000 for i in Eb)  # keV
+
 
 def apply_to_df_col(column):
     def wrapper(fn):
@@ -425,7 +440,7 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
         data = fix_mask(data, all_same=True, rate=1)
         config.TRAIN_FRAC = 1.0
     elif config.TRAIN_SET == "random-all_same":
-        data = fix_mask(data, all_same=True, rate=config.TRAIN_FRAC)
+        data = fix_mask(data, all_same=True, rate=config.TRAIN_FRAC, seed=config.SEED)
     elif "extrap" in config.TRAIN_SET:
         distance = int(config.TRAIN_SET.split("_")[1])
         data = remove_edges(data, distance)
@@ -434,9 +449,9 @@ def prepare_nuclear_data(config: argparse.Namespace, recreate: bool = False):
 
 
 
-def fix_mask(data, all_same=True, rate=1):
+def fix_mask(data, all_same=True, rate=1, seed=42):
     """all_same makes every task have the same mask, otherwise each task has it's own mask given by the order of the task"""
-    gen = torch.Generator().manual_seed(42)
+    gen = torch.Generator().manual_seed(seed)
     if all_same:
         new_train_mask = torch.rand(data.train_mask.shape[0]//len(data.output_map), generator=gen) < rate
         new_train_mask = new_train_mask.repeat_interleave(len(data.output_map))

@@ -48,7 +48,7 @@ def preds_targets_zn(data, model, task_name, train=True):
     # this is not optimal but not worth optimizing for now
     preds = model(data.X[mask])
     preds = preds.cpu().detach().numpy()
-    preds = data.regression_transformer.inverse_transform(preds)[scatter, task_idx]
+    # preds = data.regression_transformer.inverse_transform(preds)[scatter, task_idx]
     return preds, targets, X_train[scatter, :2].cpu().numpy()
 
 
