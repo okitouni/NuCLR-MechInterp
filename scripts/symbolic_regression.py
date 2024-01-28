@@ -6,11 +6,11 @@ import os
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
-from lib.model import get_model_and_optim
-from lib.data import prepare_nuclear_data
-from lib.utils import PlottingContext, IO, get_rms
+from src.model import get_model_and_optim
+from src.data import prepare_nuclear_data
+from src.utils import PlottingContext, IO, get_rms
 from sklearn.decomposition import PCA
-from lib.data import semi_empirical_mass_formula, BW2_mass_formula
+from src.data import semi_empirical_mass_formula, BW2_mass_formula
 import seaborn as sns
 from functools import partial
 
@@ -95,9 +95,9 @@ nprocs = multiprocessing.cpu_count()
 sr_factory = partial(
     PySRRegressor,
     niterations=2000,  # < Increase me for better results
-    binary_operators=["+", "*"],
+    binary_operators=["+", "*", "^"],
     unary_operators=[
-        "sin",
+        # "sin",
         # "exp",
         "inv(x) = 1/x",
         # ^ Custom operator (julia syntax)
@@ -106,10 +106,11 @@ sr_factory = partial(
     extra_sympy_mappings={"inv": lambda x: 1 / x, "parity": lambda x: x % 2},
     nested_constraints={
         # "cos": {"cos": 0,"sin": 0},
-        "sin": {
-            # "cos": 0,
-            "sin": 0
-        },
+        # "sin": {
+        #     # "cos": 0,
+        #     "sin": 0
+        # },
+        "^": {"^": 0, "inv": 0, "parity":0 },
         "parity": {"parity": 0},
     },
     # ^ Define operator for SymPy as well
@@ -128,7 +129,7 @@ sr_factory = partial(
 
 FORCE = True
 
-os.makedirs(f"plots/long-runs/{model_name}/equations", exist_ok=True)
+os.makedirs(f"plots/long-runs/{model_name}/equations_powr_laws", exist_ok=True)
 inputs = X[:, :2].detach().cpu().numpy()
 # fit the symbolic regression model to the data
 equations = []

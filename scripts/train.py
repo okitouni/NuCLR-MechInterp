@@ -8,9 +8,9 @@ import wandb
 
 # print current working directory
 
-from lib.utils import preds_targets_zn, IO, get_rms, get_rms_no_outliers
-from lib.model import get_model_and_optim
-from lib.data import prepare_nuclear_data
+from src.utils import preds_targets_zn, IO, get_rms, get_rms_no_outliers
+from src.model import get_model_and_optim
+from src.data import prepare_nuclear_data
 
 
 parser = ArgumentParser()
