@@ -1,4 +1,5 @@
 import torch
+import math
 from torch import nn
 from torch.nn import functional as F
 from functools import partial
@@ -74,6 +75,78 @@ class ResidualBlock(nn.Module):
         return self.norm(x + self.dropout(self.ff(x)))
 
 
+
+class SelfAttention(nn.Module):
+    def __init__(self, n_embd, n_head=4, dropout=0.0):
+        super().__init__()
+        # key, query, value projections for all heads, but in a batch
+        self.c_attn = nn.Linear(n_embd, 3 * n_embd, bias=False)
+        # output projection
+        self.c_proj = nn.Linear(n_embd, n_embd, bias=False)
+        # regularization
+        self.attn_dropout = nn.Dropout(dropout)
+        self.resid_dropout = nn.Dropout(dropout)
+        self.n_head = n_head
+        self.n_embd = n_embd
+        self.dropout = dropout
+        # flash attention make GPU go brrrrr but support is only in PyTorch >= 2.0
+        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+
+    def forward(self, x):
+        B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
+
+        # calculate query, key, values for all heads in batch and move head forward to be the batch dim
+        q, k, v  = self.c_attn(x).split(self.n_embd, dim=2)
+        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+
+        # self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
+        if self.flash:
+            # efficient attention using Flash Attention CUDA kernels
+            y = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=self.dropout if self.training else 0, is_causal=False)
+        else:
+            # manual implementation of attention
+            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+            att = F.softmax(att, dim=-1)
+            att = self.attn_dropout(att)
+            y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+        y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
+
+        # output projection
+        y = self.resid_dropout(self.c_proj(y))
+        return y
+
+class ResidualBlockWithAttn(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        n_head: int,
+        dropout: float = 0.0,
+        activation: nn.Module = nn.ReLU(),
+        norm: Callable = None,
+    ):
+        norm = norm or (lambda x: x)
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        self.attn = norm(SelfAttention(d_model, n_head, dropout))
+        self.ff = nn.Sequential(
+            norm(nn.Linear(d_model, d_model)),
+            activation,
+        )
+        # self.norm = nn.LayerNorm(d_model, elementwise_affine=False)
+        # self.norm = nn.BatchNorm1d(d_model, affine=False)
+        self.norm = nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor, shape [batch_size, seq_len, d_model]
+        """
+        x = x + self.attn(x)
+        return self.norm(x + self.dropout(self.ff(x)))
+
+
 class BaselineModel(Base):
     def __init__(
         self,
@@ -122,10 +195,64 @@ class BaselineModel(Base):
             raise ValueError(f"Unknown return_shape: {return_shape}")
         return x
 
+class Transformer(Base):
+    def __init__(
+        self,
+        vocab_size: Iterable,
+        non_embedded_input_dim: int,
+        hidden_dim: int,
+        output_dim: int,
+        depth: int = 2,
+        # n_head: int = 4,
+        output_transform: Callable = None,
+    ):
+        """
+        :param vocab_size: number of tokens in the vocabulary,
+          or an Iterable of vocab sizes for each input. One embedding layer will be created for each input.
+        :param hidden_dim: dimension of the hidden layer
+        :param output_dim: dimension of the output layer
+        """
+
+        super().__init__(vocab_size, non_embedded_input_dim, hidden_dim)
+        act = nn.ReLU()
+        self.nonlinear = nn.Sequential(
+            nn.Linear(self.hidden_dim, hidden_dim),
+            nn.SiLU(),
+            *[
+                ResidualBlockWithAttn(hidden_dim, n_head=4, activation=act)
+                for _ in range(depth)
+            ],
+        )
+        self.readout = nn.Linear(self.input_dim, output_dim)
+        self.output_transform = output_transform
+
+    def forward(self, x, return_shape='task'):
+        return self.forward_with_embeddings(x, self.emb, return_shape)
+
+    def forward_with_embeddings(self, x, embs, return_shape='task', apply_transform=True):  # embs: [ batch_size, 2 * hidden_dim ]
+        task_idx = x[:, [2]]
+        x = self.embed_input(x, embs)
+        x = x.view(x.shape[0], -1, self.hidden_dim) 
+        x = self.nonlinear(x)  # [ batch_size, T, hidden_dim ]
+        x = x.view(x.shape[0], -1)
+        x = self.readout(x)  # [ batch_size, output_dim ]
+        if apply_transform and hasattr(self, "output_transform") and self.output_transform:
+            x = self.output_transform(x)
+        if return_shape == 'all':
+            return x
+        elif return_shape == 'task':
+            x = x.gather(1, task_idx)
+        else:
+            raise ValueError(f"Unknown return_shape: {return_shape}")
+        return x
+
+    
 
 def get_model_fn(config):
     if config.MODEL == "baseline":
         return BaselineModel
+    elif config.MODEL == "transformer":
+        return Transformer
     else:
         raise ValueError(
             f"Unknown model: {config.MODEL}, choose between 'baseline', 'splitup', 'transformer' and 'moe'"
@@ -199,7 +326,7 @@ def make_mup(model_fn: Callable, shape_file=None, model=None, **scale_kwargs) ->
 def get_model_and_optim(data: Data, config, shape_file=None):
     """uses data to figure various shapes, config for model_params, and shape_file to save shapes"""
     # set up model
-    if config.MODEL == "splitup" or config.MODEL == "transformer":
+    if config.MODEL == "splitup":
         output_dim = list(data.output_map.values())
     else:
         output_dim = sum(data.output_map.values())
