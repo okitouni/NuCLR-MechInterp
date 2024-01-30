@@ -8,9 +8,9 @@ import wandb
 
 # print current working directory
 
-from lib.utils import preds_targets_zn, IO, get_rms, get_rms_no_outliers
-from lib.model import get_model_and_optim
-from lib.data import prepare_nuclear_data
+from src.utils import preds_targets_zn, IO, get_rms, get_rms_no_outliers
+from src.model import get_model_and_optim
+from src.data import prepare_nuclear_data
 
 
 parser = ArgumentParser()
@@ -58,22 +58,26 @@ if __name__ == "__main__":
     X_train = X_train[non_nan_targets]
     y_train = y_train[non_nan_targets]
 
-    def quick_eval(model, task="binding", train=False):
-        preds, targets, zn = preds_targets_zn(data, model, task, train=train)
-        rms = get_rms(preds, targets, zn, scale_by_A=args.PER_NUCLEON == "true")
-        rms_clip = get_rms_no_outliers(
-            preds, targets, zn, scale_by_A=args.PER_NUCLEON == "true"
-        )
-        return rms, rms_clip
+    def quick_eval(model, task_name=None, train=True):
+        if train:
+            X = X_train
+            y = y_train
+        else:
+            X = data.X[data.val_mask]
+            y = data.y[data.val_mask]
+        
+        nan_mask = torch.isnan(y.view(-1))
+        X = X[~nan_mask]
+        y = y[~nan_mask]
+        if task_name is not None:
+            task_idx = list(data.output_map.keys()).index(task_name)
+            mask = X[:, 2].long() == task_idx
+            X = X[mask]
+            y = y[mask]
+        preds = model(X)
+        rms = torch.sqrt(torch.nn.functional.mse_loss(preds, y))
+        return rms
 
-    def transform(tensor):
-        min_ = torch.tensor(
-            data.regression_transformer.data_min_.tolist(), device=tensor.device
-        )
-        max_ = torch.tensor(
-            data.regression_transformer.data_max_.tolist(), device=tensor.device
-        )
-        return (tensor * (max_ - min_)) + min_
 
     new_model, optim = get_model_and_optim(data, args)
 
@@ -97,9 +101,7 @@ if __name__ == "__main__":
             y_batch = y_train[batch]
 
             optim.zero_grad()
-            preds = transform(new_model(X_batch))
-            preds = preds.gather(1, X_batch[:, 2].long().view(-1, 1))
-            loss = torch.nn.functional.mse_loss(preds, y_batch, reduction="none")
+            loss = torch.nn.functional.mse_loss(new_model(X_batch), y_batch, reduction="none")
             weights = loss_weights[X_batch[:, [2]].long()]
             loss = (loss * weights).mean()
             loss.backward()
@@ -113,14 +115,14 @@ if __name__ == "__main__":
         if epoch % (args.EPOCHS // args.LOG_TIMES) == 0 and args.VERBOSITY > 0:
             print(f"Epoch {epoch}: {loss.item():.2f}")
             train_rms = quick_eval(new_model, main_task_name, train=True)
-            print(f"Train RMS: {train_rms[0]:.2f} ({train_rms[1]:.2f})", end=" ")
+            print(f"Train RMS: {train_rms:.2f}", end=" ")
             if args.WANDB == "true":
                 wandb.log({f"train/{main_task_name}/rms": train_rms[0]})
             if data.val_mask.sum() > 0:
                 val_rms = quick_eval(
                     new_model, main_task_name, train=False
                 )
-                print(f"Val RMS: {val_rms[0]:.2f} ({val_rms[1]:.2f})")
+                print(f"Val RMS: {val_rms:.2f}")
                 if args.WANDB == "true":
                     wandb.log({f"val/{main_task_name}/rms": val_rms[0]})
         if epoch % (args.EPOCHS // args.SAVE_CKPT) ==0:

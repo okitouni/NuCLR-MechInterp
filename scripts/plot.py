@@ -1,7 +1,7 @@
 import os
-from lib.utils import IO, PlottingContext
-from lib.data import prepare_nuclear_data
-from lib.model import get_model_and_optim
+from src.utils import IO, PlottingContext
+from src.data import prepare_nuclear_data
+from src.model import get_model_and_optim
 import torch
 from argparse import ArgumentParser
 from glob import glob

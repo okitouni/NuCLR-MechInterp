@@ -5,7 +5,7 @@ import torch
 import yaml
 import os
 import sys
-from lib.utils import IO, Slurm
+from src.utils import IO, Slurm
 from argparse import ArgumentParser
 
 parser = ArgumentParser()

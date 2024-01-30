@@ -5,8 +5,9 @@ We train for a very long time with small learning rate.
 import torch
 import yaml
 import os
+import subprocess
 import sys
-from lib.utils import IO, Slurm
+from src.utils import IO, Slurm
 from argparse import ArgumentParser
 
 parser = ArgumentParser()
@@ -92,13 +93,17 @@ if __name__ == "__main__":
             yaml.dump(config, open(args_path, "w"), sort_keys=False)
 
             # run the pipeline
+            which_python = (
+                subprocess.check_output("which python", shell=True).decode("ascii").strip()
+            )
             try:
-                pipeline_cmd = f"python -m scripts.pipeline -exp {experiment_name} --train -r {ROOT} --name {experiment_name}"
+                pipeline_cmd = f"{which_python} -m scripts.pipeline -exp {experiment_name} --train -r {ROOT} --name {experiment_name}"
                 print("Running:", pipeline_cmd)
-                if SLURM:
-                    Slurm.create_job(pipeline_cmd, experiment_name)
-                else:
-                    os.system(pipeline_cmd)
+                if not DEBUG:
+                    if SLURM:
+                        Slurm.create_job(pipeline_cmd, experiment_name)
+                    else:
+                        os.system(pipeline_cmd)
             except KeyboardInterrupt:
                 print("Interrupted")
                 sys.exit()

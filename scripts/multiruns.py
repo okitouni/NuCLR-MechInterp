@@ -2,7 +2,7 @@ import torch
 import yaml
 import os
 import sys
-from lib.utils import IO
+from src.utils import IO
 from run_slurm import create_job
 from argparse import ArgumentParser
 
